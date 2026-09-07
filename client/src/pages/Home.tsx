@@ -72,6 +72,16 @@ const metrologyRules = [
   ["R10", "Barcode / traceability", "Barcode, batch, or lot reference"],
 ] as const;
 
+const productRuleChecks: Record<string, boolean[]> = {
+  "oats-500g": [true, true, true, true, true, true, true, true, true, true],
+  "rice-5kg": [true, true, true, true, true, true, true, true, true, true],
+  "namkeen-noncompliant": [true, true, true, true, true, true, false, false, true, true],
+  "spices-expired": [true, true, true, false, true, false, true, true, true, true],
+  "lays-chips": [true, true, true, true, true, true, true, true, true, true],
+  "parle-g-biscuit": [true, true, true, true, true, true, true, true, true, true],
+  "fizz-softdrink": [true, true, true, true, true, true, true, true, true, true],
+};
+
 const staticDeclarations: Declaration[] = [
   { rule: "6(1)(a)", name: "Manufacturer / packer / importer", explanation: "Company and premises address must carry a valid six-digit PIN.", found: "GrainWorks Foods Pvt Ltd · Pune 411001", status: "✓ PRESENT" },
   { rule: "6(1)(aa)", name: "Country of origin", explanation: "Imported goods identify the country where the commodity was made.", found: "Country of Origin: India", status: "✓ PRESENT" },
@@ -105,7 +115,7 @@ export default function Home() {
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [capturedFrames, setCapturedFrames] = useState<Array<{ label: string; data: string }>>([]);
-  const [ruleChecks, setRuleChecks] = useState<boolean[]>(() => metrologyRules.map(() => false));
+  const [ruleChecks, setRuleChecks] = useState<boolean[]>(() => productRuleChecks[activeId] ?? metrologyRules.map(() => false));
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [manual, setManual] = useState({ product_name: "", declared_net_quantity: "200", scale_net_weight: "197", mrp: "60", expiry_date: "2027-02-14" });
@@ -142,6 +152,10 @@ export default function Home() {
       .catch(() => setCameraError("Camera access was blocked. Allow camera permission, or use the manual fallback below."));
     return () => { cancelled = true; streamRef.current?.getTracks().forEach(track => track.stop()); streamRef.current = null; };
   }, [cameraOpen]);
+
+  useEffect(() => {
+    if (!live) setRuleChecks(productRuleChecks[activeId] ?? metrologyRules.map(() => false));
+  }, [activeId, live]);
 
   function openCamera() {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -244,7 +258,7 @@ export default function Home() {
   const displayedUsp = live?.compliance.pricing.unitSalePrice != null ? `₹${live.compliance.pricing.unitSalePrice.toFixed(2)}${live.compliance.pricing.unitLabel.replace("₹", "")}` : activeFixture.usp;
   const riskMax = useMemo(() => Math.max(...liveRisks.map(r => r.score), 1), [liveRisks]);
   const checkedRules = ruleChecks.filter(Boolean).length;
-  const checklistSource = live ? "OCR AUTO-POPULATED · EDITABLE" : "MANUAL ATTESTATION · PCR 2011 / RULE 6";
+  const checklistSource = live ? "OCR AUTO-POPULATED · EDITABLE" : `PRODUCT VERDICT · ${activeFixture.label.toUpperCase()}`;
 
   return (
     <div className="metrology-page">
