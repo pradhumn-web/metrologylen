@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { evaluateCompliance } from "./compliance_rules";
 import { evaluateHealth } from "./health_engine";
 import { getFixture, fixtures, toDossier } from "./fixtures";
+import { chipsCompanyMasterDataset, chipsMetrologyDataset } from "./chips_datasets";
 
 export type BatchItem = { sku: string; scannedAt: number; verdict: string; matchScore: number; discrepancy: boolean };
 export type Batch = { id: string; code: string; name: string; plannedQuantity: number; scannedCount: number; passCount: number; discrepancyCount: number; passRate: number; items: BatchItem[] };
@@ -64,6 +65,7 @@ function manualDossier(body: Record<string, unknown>) {
 }
 
 export function registerComplianceRoutes(app: Express) {
+  app.get("/api/chips/catalog", (_req: Request, res: Response) => res.json({ datasetType: "demo-company-reference", disclaimer: "Seeded demo inspection data; replace with verified product-company declarations before enforcement.", companyMaster: chipsCompanyMasterDataset, metrologyRules: chipsMetrologyDataset }));
   app.post("/api/scan", (req: Request, res: Response) => {
     const requested = typeof req.body?.preset_fallback === "string" ? req.body.preset_fallback : "namkeen-noncompliant";
     const selected = getFixture(requested) ?? fixtures["namkeen-noncompliant"];

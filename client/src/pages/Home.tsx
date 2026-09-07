@@ -67,15 +67,23 @@ function checklistFromDossier(dossier: Dossier): boolean[] {
 }
 
 const fixtures: Fixture[] = [
-  { id: "oats-500g", label: "oats-500g", declared: "500 g", measured: "502 g", mrp: "₹240.00", usp: "₹0.48/g", ingredients: "Whole Grain Rolled Oats (100%). Contains Gluten.", score: 100, verdict: "COMPLIANT", verdictText: "✓ COMPLIANT", reason: "All critical fields present; MPE within 15 g.", flags: [{ text: "GLUTEN", tone: "review" }, { text: "CELIAC · HIGH", tone: "fail" }, { text: "SODIUM · LOW", tone: "pass" }] },
-  { id: "rice-5kg", label: "rice-5kg", declared: "5 kg", measured: "5018 g", mrp: "₹725.00", usp: "₹145.00/kg", ingredients: "100% Pure Aged Indian Basmati Rice.", score: 100, verdict: "COMPLIANT", verdictText: "✓ COMPLIANT", reason: "All critical fields present; MPE within 75 g.", flags: [{ text: "NO ALLERGENS", tone: "pass" }, { text: "VEGETARIAN", tone: "pass" }, { text: "LOW RISK", tone: "pass" }] },
-  { id: "namkeen-noncompliant", label: "namkeen-noncompliant", declared: "200 g", measured: "197 g", mrp: "Rs 60/- · TAXES EXTRA", usp: "MISSING", ingredients: "Besan (52%), Refined Palmolein Oil (26%), Salt (2.8%), MSG (INS 621), Sodium Bicarbonate (INS 500(ii)), Caramel IV (INS 150d). Contains Soy.", score: 58, verdict: "NON_COMPLIANT", verdictText: "✗ NON-COMPLIANT", reason: "MRP syntax is illegal; USP is absent under Rule 6(11).", flags: [{ text: "SOY · CRITICAL", tone: "fail" }, { text: "HYPERTENSION · DANGER", tone: "fail" }, { text: "PALMOLEIN · DANGER", tone: "fail" }] },
-  { id: "spices-expired", label: "spices-expired", declared: "100 g", measured: "89 g", mrp: "₹58.00", usp: "₹0.58/g", ingredients: "Coriander, Cumin, Mustard Seeds, Sodium Benzoate (INS 211).", score: 42, verdict: "NON_COMPLIANT", verdictText: "✗ NON-COMPLIANT", reason: "11 g shortfall breaches 4.5 g MPE; expiry is past.", flags: [{ text: "MUSTARD · MODERATE", tone: "review" }, { text: "MPE · FAIL", tone: "fail" }, { text: "EXPIRED", tone: "fail" }] },
-  { id: "lays-chips", label: "chips", declared: "52 g", measured: "53 g", mrp: "₹20.00", usp: "₹0.38/g", ingredients: "Potatoes, Edible Vegetable Oil (Palmolein), Iodised Salt.", score: 96, verdict: "COMPLIANT", verdictText: "✓ COMPLIANT", reason: "Mandatory declarations present; measured quantity is inside the 4.5 g MPE.", flags: [{ text: "NO ALLERGENS", tone: "pass" }, { text: "SALT · WARNING", tone: "review" }, { text: "PALMOLEIN · DANGER", tone: "fail" }] },
-  { id: "parle-g-biscuit", label: "biscuit", declared: "250 g", measured: "252 g", mrp: "₹30.00", usp: "₹0.12/g", ingredients: "Wheat Flour (Maida), Sugar, Edible Vegetable Oil (Palmolein), Invert Syrup, Milk Solids, Salt.", score: 94, verdict: "COMPLIANT", verdictText: "✓ COMPLIANT", reason: "Label declarations pass; gluten, dairy, sugar and palmolein are health signals.", flags: [{ text: "GLUTEN · CRITICAL", tone: "fail" }, { text: "DAIRY · CRITICAL", tone: "fail" }, { text: "SUGAR · WARNING", tone: "review" }] },
-  { id: "fizz-softdrink", label: "soda bottle", declared: "750 ml", measured: "756 g", mrp: "₹40.00", usp: "₹0.05/ml", ingredients: "Carbonated Water, Sugar, Acidity Regulator (INS 330), Flavouring Substances, Preservative (INS 211).", score: 92, verdict: "COMPLIANT", verdictText: "✓ COMPLIANT", reason: "Declarations pass; added sugar is the primary health advisory.", flags: [{ text: "NO ALLERGENS", tone: "pass" }, { text: "SUGAR · WARNING", tone: "review" }, { text: "INS 211 · MODERATE", tone: "review" }] },
+  { id: "chips-lays", label: "Lay's chips", declared: "52 g", measured: "53 g", mrp: "₹20.00", usp: "₹0.38/g", ingredients: "Potatoes, Edible Vegetable Oil (Palmolein), Iodised Salt.", score: 96, verdict: "COMPLIANT", verdictText: "✓ COMPLIANT", reason: "Mandatory declarations present; measured quantity is inside the 4.5 g MPE.", flags: [{ text: "NO ALLERGENS", tone: "pass" }, { text: "SALT · WARNING", tone: "review" }, { text: "PALMOLEIN · DANGER", tone: "fail" }] },
+  { id: "chips-bingo", label: "Bingo! chips", declared: "90 g", measured: "91 g", mrp: "₹50.00", usp: "₹0.56/g", ingredients: "Potatoes, Edible Vegetable Oil, Iodised Salt, Spices, Acidity Regulator (INS 330).", score: 94, verdict: "COMPLIANT", verdictText: "✓ COMPLIANT", reason: "Declarations pass; salt and additive signals require health review.", flags: [{ text: "NO ALLERGENS", tone: "pass" }, { text: "SALT · WARNING", tone: "review" }, { text: "INS 330 · REVIEW", tone: "review" }] },
+  { id: "chips-balaji", label: "Balaji wafers", declared: "55 g", measured: "54 g", mrp: "₹20.00", usp: "₹0.36/g", ingredients: "Potatoes, Palmolein Oil, Salt, Sugar, Spices. Contains Milk Solids.", score: 88, verdict: "NEEDS_REVIEW", verdictText: "⚠ NEEDS REVIEW", reason: "Quantity is within tolerance; milk declaration and sodium signals need review.", flags: [{ text: "DAIRY · CRITICAL", tone: "fail" }, { text: "SALT · WARNING", tone: "review" }, { text: "PALMOLEIN · REVIEW", tone: "review" }] },
+  { id: "chips-tooyumm", label: "Too Yumm! chips", declared: "70 g", measured: "68 g", mrp: "₹35.00", usp: "₹0.50/g", ingredients: "Potatoes, Rice Bran Oil, Salt, Chilli, Acidity Regulator (INS 330).", score: 91, verdict: "COMPLIANT", verdictText: "✓ COMPLIANT", reason: "Declarations pass and measured quantity remains inside the 3.5 g MPE.", flags: [{ text: "NO MAJOR ALLERGEN", tone: "pass" }, { text: "SALT · WARNING", tone: "review" }, { text: "INS 330 · REVIEW", tone: "review" }] },
+  { id: "chips-unclechipps", label: "Uncle Chipps", declared: "55 g", measured: "55 g", mrp: "₹20.00", usp: "₹0.36/g", ingredients: "Potatoes, Edible Vegetable Oil, Salt, Sugar, Spices. Contains Soy.", score: 86, verdict: "NEEDS_REVIEW", verdictText: "⚠ NEEDS REVIEW", reason: "Soy allergen and sugar/sodium signals require a health review.", flags: [{ text: "SOY · CRITICAL", tone: "fail" }, { text: "SUGAR · WARNING", tone: "review" }, { text: "SALT · WARNING", tone: "review" }] },
 ];
-
+const chipAliases: Record<string, string[]> = {
+  "chips-lays": ["lays", "lay's", "classic salted"],
+  "chips-bingo": ["bingo", "mad angles"],
+  "chips-balaji": ["balaji", "wafers"],
+  "chips-tooyumm": ["too yumm", "tooyumm"],
+  "chips-unclechipps": ["uncle chipps", "uncle chips"],
+};
+function matchChipFixture(value: string) {
+  const normalized = value.toLowerCase();
+  return fixtures.find(fixture => normalized.includes(fixture.label.toLowerCase()) || (chipAliases[fixture.id] ?? []).some(alias => normalized.includes(alias))) ?? null;
+}
 const metrologyRules = [
   ["R1", "Manufacturer / packer / importer", "Name and complete postal address"],
   ["R2", "Country of origin", "Required for imported commodities"],
@@ -90,13 +98,11 @@ const metrologyRules = [
 ] as const;
 
 const productRuleChecks: Record<string, boolean[]> = {
-  "oats-500g": [true, true, true, true, true, true, true, true, true, true],
-  "rice-5kg": [true, true, true, true, true, true, true, true, true, true],
-  "namkeen-noncompliant": [true, true, true, true, true, true, false, false, true, true],
-  "spices-expired": [true, true, true, false, true, false, true, true, true, true],
-  "lays-chips": [true, true, true, true, true, true, true, true, true, true],
-  "parle-g-biscuit": [true, true, true, true, true, true, true, true, true, true],
-  "fizz-softdrink": [true, true, true, true, true, true, true, true, true, true],
+  "chips-lays": [true, true, true, true, true, true, true, true, true, true],
+  "chips-bingo": [true, true, true, true, true, true, true, true, true, true],
+  "chips-balaji": [true, true, true, true, true, true, true, true, true, true],
+  "chips-tooyumm": [true, true, true, true, true, true, true, true, true, true],
+  "chips-unclechipps": [true, true, true, true, true, true, true, true, true, true],
 };
 
 const staticDeclarations: Declaration[] = [
@@ -138,6 +144,13 @@ const verdictProfiles: Record<string, { allergens: AllergenRecord[]; risks: Risk
   "parle-g-biscuit": { allergens: productAllergens({ gluten: ["wheat flour", "maida"], dairy: ["milk solids"] }), risks: [{ name: "Celiac disease", score: 91, tone: "fail", reason: "Wheat Flour (Maida) is explicitly listed." }, { name: "Lactose intolerance", score: 64, tone: "review", reason: "Milk Solids are declared." }, { name: "Diabetes mellitus", score: 78, tone: "fail", reason: "Sugar and invert syrup are declared." }, { name: "Atherosclerosis & lipids", score: 55, tone: "review", reason: "Palmolein oil is declared." }], statutoryLine: "ALLERGEN DECLARATION: Contains Wheat (Gluten) and Milk Solids." },
   "fizz-softdrink": { allergens: productAllergens({ sulfites: ["INS 211"] }), risks: [{ name: "Diabetes mellitus", score: 96, tone: "fail", reason: "Sugar is a primary ingredient in the soft drink." }, { name: "Hypertension & CVD", score: 18, tone: "review", reason: "Carbonated beverage and preservative signal detected." }, { name: "Celiac disease", score: 0, tone: "pass", reason: "No gluten keyword detected." }, { name: "Sulfite sensitivity", score: 44, tone: "review", reason: "Preservative INS 211 is declared." }], statutoryLine: "ALLERGEN DECLARATION: Sulfite preservative detected; added sugar advisory applies." },
 };
+const chipsProfiles: Record<string, { allergens: AllergenRecord[]; risks: RiskRecord[]; statutoryLine: string }> = {
+  "chips-lays": { allergens: productAllergens({}), risks: [{ name: "Hypertension & CVD", score: 68, tone: "review", reason: "Iodised salt is declared in the savoury chips." }, { name: "Atherosclerosis & lipids", score: 72, tone: "fail", reason: "Palmolein oil is declared." }, { name: "Diabetes mellitus", score: 8, tone: "pass", reason: "No sugar keyword detected." }, { name: "Celiac disease", score: 0, tone: "pass", reason: "No gluten keyword detected." }], statutoryLine: "ALLERGEN DECLARATION: No major allergen keyword detected; salt and palmolein advisories apply." },
+  "chips-bingo": { allergens: productAllergens({}), risks: [{ name: "Hypertension & CVD", score: 55, tone: "review", reason: "Iodised salt is declared." }, { name: "Additive sensitivity", score: 28, tone: "review", reason: "Acidity regulator INS 330 is declared." }, { name: "Diabetes mellitus", score: 12, tone: "pass", reason: "No added sugar keyword detected." }, { name: "Celiac disease", score: 0, tone: "pass", reason: "No gluten keyword detected." }], statutoryLine: "ALLERGEN DECLARATION: No major allergen keyword detected." },
+  "chips-balaji": { allergens: productAllergens({ dairy: ["milk solids"] }), risks: [{ name: "Lactose intolerance", score: 72, tone: "fail", reason: "Milk Solids are explicitly declared." }, { name: "Hypertension & CVD", score: 61, tone: "review", reason: "Salt is declared in the snack seasoning." }, { name: "Atherosclerosis & lipids", score: 69, tone: "fail", reason: "Palmolein oil is declared." }, { name: "Diabetes mellitus", score: 36, tone: "review", reason: "Sugar is present in the ingredient line." }], statutoryLine: "ALLERGEN DECLARATION: Contains Milk Solids." },
+  "chips-tooyumm": { allergens: productAllergens({}), risks: [{ name: "Hypertension & CVD", score: 48, tone: "review", reason: "Salt is declared." }, { name: "Additive sensitivity", score: 28, tone: "review", reason: "Acidity regulator INS 330 is declared." }, { name: "Diabetes mellitus", score: 0, tone: "pass", reason: "No sugar keyword detected." }, { name: "Celiac disease", score: 0, tone: "pass", reason: "No gluten keyword detected." }], statutoryLine: "ALLERGEN DECLARATION: No major allergen keyword detected." },
+  "chips-unclechipps": { allergens: productAllergens({ soy: ["soy"] }), risks: [{ name: "Soy sensitivity", score: 82, tone: "fail", reason: "Soy is explicitly declared." }, { name: "Hypertension & CVD", score: 57, tone: "review", reason: "Salt is declared." }, { name: "Diabetes mellitus", score: 31, tone: "review", reason: "Sugar is present in the ingredient line." }, { name: "Atherosclerosis & lipids", score: 38, tone: "review", reason: "Edible vegetable oil is declared." }], statutoryLine: "ALLERGEN DECLARATION: Contains Soy." },
+};
 
 function statusTone(status: string) {
   if (status.includes("PRESENT") || status.includes("N/A")) return "pass";
@@ -146,7 +159,7 @@ function statusTone(status: string) {
 }
 
 export default function Home() {
-  const [activeId, setActiveId] = useState("namkeen-noncompliant");
+  const [activeId, setActiveId] = useState("chips-lays");
   const [live, setLive] = useState<Dossier | null>(null);
   const [scanState, setScanState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -157,7 +170,7 @@ export default function Home() {
   const streamRef = useRef<MediaStream | null>(null);
   const [manual, setManual] = useState({ product_name: "", declared_net_quantity: "200", scale_net_weight: "197", mrp: "60", expiry_date: "2027-02-14" });
   const activeFixture = fixtures.find(f => f.id === activeId) ?? fixtures[2];
-  const activeProfile = verdictProfiles[activeId] ?? verdictProfiles["namkeen-noncompliant"];
+  const activeProfile = chipsProfiles[activeId] ?? verdictProfiles[activeId] ?? chipsProfiles["chips-lays"];
   const liveDeclarations = live?.compliance.declarations ?? staticDeclarations;
   const liveRisks: RiskRecord[] = live?.health.chronicRisks ?? activeProfile.risks;
   const liveAllergens: AllergenRecord[] = live?.health.allergens ?? activeProfile.allergens;
@@ -242,6 +255,8 @@ export default function Home() {
       const response = await fetch("/api/manual-audit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(manual) });
       if (!response.ok) throw new Error("Manual audit failed");
       const dossier = await response.json() as Dossier;
+      const matchedFixture = matchChipFixture(manual.product_name);
+      if (matchedFixture) setActiveId(matchedFixture.id);
       setLive(dossier);
       setRuleChecks(checklistFromDossier(dossier));
       setScanState("done");
@@ -317,7 +332,7 @@ export default function Home() {
 
         <section className="ruled-section" id="declarations"><div className="section-head"><h2>Declarations ledger</h2><span>RULE 6(1) · WORKED EXAMPLE / {currentProductName.toUpperCase()}</span></div><div className="ledger">{liveDeclarations.map(row => <div className="ledger-row" key={row.rule}><span className="rule-id">{row.rule}</span><div className="ledger-name"><strong>{row.name}</strong><span>{row.explanation}</span></div><code>{row.found}</code><span className={`ledger-status ${statusTone(row.status)}`}>{row.status}</span></div>)}</div></section>
 
-        <section className="ruled-section" id="verdicts"><div className="section-head"><h2>Verdicts</h2><span>GROUND-TRUTH FIXTURES · 7 CASES</span></div><div className="fixture-tabs" role="tablist" aria-label="Ground-truth fixtures">{fixtures.map(f => <button key={f.id} role="tab" aria-selected={activeId === f.id} className={activeId === f.id ? "active" : ""} onClick={() => { setActiveId(f.id); setLive(null); setRuleChecks(metrologyRules.map(() => false)); }}>{f.label}</button>)}</div><div className="verdict-panel"><div className="fixture-data"><dl><div><dt>Declared / measured</dt><dd>{live && activeId === "namkeen-noncompliant" ? displayedQuantity : activeFixture.declared} <span>/</span> {live && activeId === "namkeen-noncompliant" ? displayedMeasured : activeFixture.measured}</dd></div><div><dt>MRP / unit sale price</dt><dd>{live && activeId === "namkeen-noncompliant" ? displayedMrp : activeFixture.mrp} <span>/</span> {live && activeId === "namkeen-noncompliant" ? displayedUsp : activeFixture.usp}</dd></div><div><dt>Ingredient read</dt><dd className="ingredient-read"><div className="ingredient-table" role="table" aria-label={`${activeFixture.label} ingredients`}><div className="ingredient-row ingredient-head" role="row"><span role="columnheader">Ingredient</span><span role="columnheader">Class</span><span role="columnheader">Signal</span></div>{ingredientRows.map(row => <div className="ingredient-row" role="row" key={`${row.name}-${row.category}`}><span role="cell">{row.name}</span><span role="cell">{row.category}</span><span role="cell" className={row.tone}>{row.signal}</span></div>)}</div></dd></div><div><dt>Match score</dt><dd className="score-read">{live && activeId === "namkeen-noncompliant" ? live.compliance.matchScore : activeFixture.score}<span>/100</span></dd></div></dl><div className="flag-row">{activeFixture.flags.map(flag => <span key={flag.text} className={`flag-chip ${flag.tone}`}>{flag.text}</span>)}</div></div><div className={`ink-stamp ${activeVerdict.verdict === "COMPLIANT" ? "pass" : activeVerdict.verdict === "NEEDS_REVIEW" ? "review" : "fail"}`}><span>{activeVerdict.text}</span><small>{activeVerdict.reason}</small></div></div></section>
+        <section className="ruled-section" id="verdicts"><div className="section-head"><h2>Verdicts</h2><span>COMPANY DEMO DATASET · 5 CHIP BRANDS</span></div><div className="fixture-tabs" role="tablist" aria-label="Chips brand fixtures">{fixtures.map(f => <button key={f.id} role="tab" aria-selected={activeId === f.id} className={activeId === f.id ? "active" : ""} onClick={() => { setActiveId(f.id); setLive(null); setRuleChecks(metrologyRules.map(() => false)); }}>{f.label}</button>)}</div><div className="verdict-panel"><div className="fixture-data"><dl><div><dt>Declared / measured</dt><dd>{live ? displayedQuantity : activeFixture.declared} <span>/</span> {live ? displayedMeasured : activeFixture.measured}</dd></div><div><dt>MRP / unit sale price</dt><dd>{live ? displayedMrp : activeFixture.mrp} <span>/</span> {live ? displayedUsp : activeFixture.usp}</dd></div><div><dt>Ingredient read</dt><dd className="ingredient-read"><div className="ingredient-table" role="table" aria-label={`${activeFixture.label} ingredients`}><div className="ingredient-row ingredient-head" role="row"><span role="columnheader">Ingredient</span><span role="columnheader">Class</span><span role="columnheader">Signal</span></div>{ingredientRows.map(row => <div className="ingredient-row" role="row" key={`${row.name}-${row.category}`}><span role="cell">{row.name}</span><span role="cell">{row.category}</span><span role="cell" className={row.tone}>{row.signal}</span></div>)}</div></dd></div><div><dt>Match score</dt><dd className="score-read">{live ? live.compliance.matchScore : activeFixture.score}<span>/100</span></dd></div></dl><div className="flag-row">{activeFixture.flags.map(flag => <span key={flag.text} className={`flag-chip ${flag.tone}`}>{flag.text}</span>)}</div></div><div className={`ink-stamp ${activeVerdict.verdict === "COMPLIANT" ? "pass" : activeVerdict.verdict === "NEEDS_REVIEW" ? "review" : "fail"}`}><span>{activeVerdict.text}</span><small>{activeVerdict.reason}</small></div></div></section>
 
         <section className="ruled-section" id="allergens"><div className="section-head"><h2>Allergen & health risk</h2><span>FSSAI REG. 2.4.5 · {activeFixture.label.toUpperCase()}</span></div><div className="allergen-grid">{liveAllergens.map(allergen => <div className={`allergen-cell ${allergen.present ? "present" : "clear"}`} key={allergen.id}><div><strong>{allergen.name}</strong><span>{allergen.present ? allergen.severity.toUpperCase() : "NOT FOUND"}</span></div><p>{allergen.present ? `Matched ${allergen.matchedKeywords.join(", ")}.` : "No keyword match in this product’s ingredient read."}</p></div>)}</div><p className="statutory-line">{live?.health.statutoryLine ?? activeProfile.statutoryLine}</p><div className="risk-strip">{liveRisks.slice(0, 4).map(risk => <div className="risk-item" key={risk.id ?? risk.name}><div className="risk-label"><strong>{risk.name}</strong><span className={`risk-level ${risk.level ?? risk.tone ?? "low"}`}>{(risk.level ?? risk.tone ?? "low").toUpperCase()}</span></div><div className="risk-bar"><i className={risk.level ?? risk.tone ?? "low"} style={{ width: `${Math.round((risk.score / riskMax) * 100)}%` }} /></div><p>{risk.reason}</p></div>)}</div></section>
 
