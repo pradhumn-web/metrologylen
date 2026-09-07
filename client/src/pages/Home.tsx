@@ -19,6 +19,7 @@ type Fixture = {
 type Declaration = { rule: string; name: string; explanation: string; found: string; status: string };
 type RiskRecord = { id?: string; name: string; level?: string; tone?: string; reason: string; score: number };
 type AllergenRecord = { id: string; name: string; present: boolean; matchedKeywords: string[]; severity: string };
+type IngredientRow = { name: string; category: string; signal: string; tone: "pass" | "review" | "fail" };
 type Dossier = {
   compliance: {
     verdict: Verdict;
@@ -31,6 +32,7 @@ type Dossier = {
     criticalIssues: string[];
   };
   health: {
+    ingredientText?: string;
     allergens: Array<{ id: string; name: string; present: boolean; matchedKeywords: string[]; severity: string }>;
     chronicRisks: RiskRecord[];
     statutoryLine: string;
@@ -39,6 +41,20 @@ type Dossier = {
   ocr?: { text: string; panels: string[]; boxes: Array<{ text: string; confidence: number }> } | null;
   productName?: string;
 };
+
+function parseIngredientRows(text: string, allergens: AllergenRecord[], additives: Array<{ code: string; name: string }>): IngredientRow[] {
+  const allergenTerms = allergens.filter(item => item.present).flatMap(item => item.matchedKeywords.map(keyword => ({ keyword: keyword.toLowerCase(), name: item.name })));
+  return text.replace(/^ingredients?\s*:\s*/i, "").split(/[;,]/).map(item => item.trim().replace(/\.$/, "")).filter(Boolean).map(name => {
+    const lower = name.toLowerCase();
+    const additive = additives.find(item => lower.includes(item.code.toLowerCase()) || lower.includes(item.name.toLowerCase()));
+    const allergen = allergenTerms.find(item => lower.includes(item.keyword));
+    const category = additive ? "Additive" : /oil|fat|palm|butter|ghee/i.test(name) ? "Oil / fat" : /sugar|syrup|sweetener/i.test(name) ? "Sugar" : /salt|sodium/i.test(name) ? "Salt / sodium" : /water|potato|rice|wheat|flour|oat|coriander|cumin/i.test(name) ? "Base ingredient" : "Other";
+    if (allergen) return { name, category, signal: `Allergen · ${allergen.name}`, tone: "fail" as const };
+    if (additive) return { name, category, signal: `Additive · ${additive.code}`, tone: "review" as const };
+    if (/sugar|salt|oil|fat|palm/i.test(name)) return { name, category, signal: "Health signal", tone: "review" as const };
+    return { name, category, signal: "Declared", tone: "pass" as const };
+  });
+}
 
 const declarationRuleIds = ["6(1)(a)", "6(1)(aa)", "6(1)(b)", "6(1)(c)", "6(1)(d)", "6(1)(e)", "6(1)(f)", "6(11)", "6(1)(h)"] as const;
 
@@ -145,6 +161,8 @@ export default function Home() {
   const liveDeclarations = live?.compliance.declarations ?? staticDeclarations;
   const liveRisks: RiskRecord[] = live?.health.chronicRisks ?? activeProfile.risks;
   const liveAllergens: AllergenRecord[] = live?.health.allergens ?? activeProfile.allergens;
+  const ingredientText = live?.health.ingredientText ?? activeFixture.ingredients;
+  const ingredientRows = useMemo(() => parseIngredientRows(ingredientText, liveAllergens, live?.health.additives ?? []), [ingredientText, liveAllergens, live?.health.additives]);
   const activeVerdict = live ? { score: live.compliance.matchScore, text: live.compliance.verdictLabel, verdict: live.compliance.verdict, reason: live.compliance.criticalIssues[0] ?? "All critical fields present." } : { score: activeFixture.score, text: activeFixture.verdictText, verdict: activeFixture.verdict, reason: activeFixture.reason };
   const currentProductName = live?.productName ?? "Classic Besan Sev";
 
@@ -301,7 +319,7 @@ export default function Home() {
 
         <section className="ruled-section" id="declarations"><div className="section-head"><h2>Declarations ledger</h2><span>RULE 6(1) · WORKED EXAMPLE / {currentProductName.toUpperCase()}</span></div><div className="ledger">{liveDeclarations.map(row => <div className="ledger-row" key={row.rule}><span className="rule-id">{row.rule}</span><div className="ledger-name"><strong>{row.name}</strong><span>{row.explanation}</span></div><code>{row.found}</code><span className={`ledger-status ${statusTone(row.status)}`}>{row.status}</span></div>)}</div></section>
 
-        <section className="ruled-section" id="verdicts"><div className="section-head"><h2>Verdicts</h2><span>GROUND-TRUTH FIXTURES · 7 CASES</span></div><div className="fixture-tabs" role="tablist" aria-label="Ground-truth fixtures">{fixtures.map(f => <button key={f.id} role="tab" aria-selected={activeId === f.id} className={activeId === f.id ? "active" : ""} onClick={() => { setActiveId(f.id); setLive(null); setRuleChecks(metrologyRules.map(() => false)); }}>{f.label}</button>)}</div><div className="verdict-panel"><div className="fixture-data"><dl><div><dt>Declared / measured</dt><dd>{live && activeId === "namkeen-noncompliant" ? displayedQuantity : activeFixture.declared} <span>/</span> {live && activeId === "namkeen-noncompliant" ? displayedMeasured : activeFixture.measured}</dd></div><div><dt>MRP / unit sale price</dt><dd>{live && activeId === "namkeen-noncompliant" ? displayedMrp : activeFixture.mrp} <span>/</span> {live && activeId === "namkeen-noncompliant" ? displayedUsp : activeFixture.usp}</dd></div><div><dt>Ingredient read</dt><dd className="ingredient-read">{activeFixture.ingredients}</dd></div><div><dt>Match score</dt><dd className="score-read">{live && activeId === "namkeen-noncompliant" ? live.compliance.matchScore : activeFixture.score}<span>/100</span></dd></div></dl><div className="flag-row">{activeFixture.flags.map(flag => <span key={flag.text} className={`flag-chip ${flag.tone}`}>{flag.text}</span>)}</div></div><div className={`ink-stamp ${activeVerdict.verdict === "COMPLIANT" ? "pass" : activeVerdict.verdict === "NEEDS_REVIEW" ? "review" : "fail"}`}><span>{activeVerdict.text}</span><small>{activeVerdict.reason}</small></div></div></section>
+        <section className="ruled-section" id="verdicts"><div className="section-head"><h2>Verdicts</h2><span>GROUND-TRUTH FIXTURES · 7 CASES</span></div><div className="fixture-tabs" role="tablist" aria-label="Ground-truth fixtures">{fixtures.map(f => <button key={f.id} role="tab" aria-selected={activeId === f.id} className={activeId === f.id ? "active" : ""} onClick={() => { setActiveId(f.id); setLive(null); setRuleChecks(metrologyRules.map(() => false)); }}>{f.label}</button>)}</div><div className="verdict-panel"><div className="fixture-data"><dl><div><dt>Declared / measured</dt><dd>{live && activeId === "namkeen-noncompliant" ? displayedQuantity : activeFixture.declared} <span>/</span> {live && activeId === "namkeen-noncompliant" ? displayedMeasured : activeFixture.measured}</dd></div><div><dt>MRP / unit sale price</dt><dd>{live && activeId === "namkeen-noncompliant" ? displayedMrp : activeFixture.mrp} <span>/</span> {live && activeId === "namkeen-noncompliant" ? displayedUsp : activeFixture.usp}</dd></div><div><dt>Ingredient read</dt><dd className="ingredient-read"><div className="ingredient-table" role="table" aria-label={`${activeFixture.label} ingredients`}><div className="ingredient-row ingredient-head" role="row"><span role="columnheader">Ingredient</span><span role="columnheader">Class</span><span role="columnheader">Signal</span></div>{ingredientRows.map(row => <div className="ingredient-row" role="row" key={`${row.name}-${row.category}`}><span role="cell">{row.name}</span><span role="cell">{row.category}</span><span role="cell" className={row.tone}>{row.signal}</span></div>)}</div></dd></div><div><dt>Match score</dt><dd className="score-read">{live && activeId === "namkeen-noncompliant" ? live.compliance.matchScore : activeFixture.score}<span>/100</span></dd></div></dl><div className="flag-row">{activeFixture.flags.map(flag => <span key={flag.text} className={`flag-chip ${flag.tone}`}>{flag.text}</span>)}</div></div><div className={`ink-stamp ${activeVerdict.verdict === "COMPLIANT" ? "pass" : activeVerdict.verdict === "NEEDS_REVIEW" ? "review" : "fail"}`}><span>{activeVerdict.text}</span><small>{activeVerdict.reason}</small></div></div></section>
 
         <section className="ruled-section" id="allergens"><div className="section-head"><h2>Allergen & health risk</h2><span>FSSAI REG. 2.4.5 · {activeFixture.label.toUpperCase()}</span></div><div className="allergen-grid">{liveAllergens.map(allergen => <div className={`allergen-cell ${allergen.present ? "present" : "clear"}`} key={allergen.id}><div><strong>{allergen.name}</strong><span>{allergen.present ? allergen.severity.toUpperCase() : "NOT FOUND"}</span></div><p>{allergen.present ? `Matched ${allergen.matchedKeywords.join(", ")}.` : "No keyword match in this product’s ingredient read."}</p></div>)}</div><p className="statutory-line">{live?.health.statutoryLine ?? activeProfile.statutoryLine}</p><div className="risk-strip">{liveRisks.slice(0, 4).map(risk => <div className="risk-item" key={risk.id ?? risk.name}><div className="risk-label"><strong>{risk.name}</strong><span className={`risk-level ${risk.level ?? risk.tone ?? "low"}`}>{(risk.level ?? risk.tone ?? "low").toUpperCase()}</span></div><div className="risk-bar"><i className={risk.level ?? risk.tone ?? "low"} style={{ width: `${Math.round((risk.score / riskMax) * 100)}%` }} /></div><p>{risk.reason}</p></div>)}</div></section>
 
