@@ -49,6 +49,28 @@ describe("MetrologyLens ground-truth fixtures", () => {
     expect(fixture.compliance.expiry.risk).toBe("CRITICAL_EXPIRED");
     expect(fixture.health.allergens.find(a => a.id === "mustard")?.present).toBe(true);
   });
+
+  it("adds compliant Lay’s chips with salt and palmolein advisories", () => {
+    const fixture = fixtures["lays-chips"];
+    expect(fixture.compliance.verdictLabel).toBe("✓ Compliant");
+    expect(fixture.compliance.quantity.tolerance).toBe("PASS");
+    expect(fixture.health.allergens.filter(a => a.present)).toHaveLength(0);
+    expect(fixture.health.chronicRisks.find(r => r.id === "atherosclerosis")?.level).toBe("danger");
+  });
+
+  it("adds Parle-G with gluten and dairy signals", () => {
+    const fixture = fixtures["parle-g-biscuit"];
+    expect(fixture.compliance.verdictLabel).toBe("✓ Compliant");
+    expect(fixture.health.allergens.find(a => a.id === "gluten")?.present).toBe(true);
+    expect(fixture.health.allergens.find(a => a.id === "dairy")?.present).toBe(true);
+  });
+
+  it("adds Fizz with a sugar advisory and valid quantity tolerance", () => {
+    const fixture = fixtures["fizz-softdrink"];
+    expect(fixture.compliance.verdictLabel).toBe("✓ Compliant");
+    expect(fixture.compliance.quantity.tolerance).toBe("PASS");
+    expect(fixture.health.chronicRisks.find(r => r.id === "diabetes")?.level).toBe("warning");
+  });
 });
 
 describe("manual audit contract", () => {
