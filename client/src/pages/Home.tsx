@@ -48,6 +48,19 @@ const fixtures: Fixture[] = [
   { id: "fizz-softdrink", label: "fizz-softdrink", declared: "750 ml", measured: "756 g", mrp: "₹40.00", usp: "₹0.05/ml", ingredients: "Carbonated Water, Sugar, Acidity Regulator (INS 330), Flavouring Substances, Preservative (INS 211).", score: 92, verdict: "COMPLIANT", verdictText: "✓ COMPLIANT", reason: "Declarations pass; added sugar is the primary health advisory.", flags: [{ text: "NO ALLERGENS", tone: "pass" }, { text: "SUGAR · WARNING", tone: "review" }, { text: "INS 211 · MODERATE", tone: "review" }] },
 ];
 
+const metrologyRules = [
+  ["R1", "Manufacturer / packer / importer", "Name and complete postal address"],
+  ["R2", "Country of origin", "Required for imported commodities"],
+  ["R3", "Generic commodity name", "Clear principal display panel name"],
+  ["R4", "Net quantity", "Metric quantity and correct unit"],
+  ["R5", "Manufacture / pack date", "Month and year declaration"],
+  ["R6", "Best-before / expiry", "Readable date or shelf-life statement"],
+  ["R7", "Maximum retail price", "MRP inclusive of all taxes"],
+  ["R8", "Unit sale price", "Derived price per standard unit"],
+  ["R9", "Consumer care", "Phone, email, and postal contact"],
+  ["R10", "Barcode / traceability", "Barcode, batch, or lot reference"],
+] as const;
+
 const staticDeclarations: Declaration[] = [
   { rule: "6(1)(a)", name: "Manufacturer / packer / importer", explanation: "Company and premises address must carry a valid six-digit PIN.", found: "GrainWorks Foods Pvt Ltd · Pune 411001", status: "✓ PRESENT" },
   { rule: "6(1)(aa)", name: "Country of origin", explanation: "Imported goods identify the country where the commodity was made.", found: "Country of Origin: India", status: "✓ PRESENT" },
@@ -81,6 +94,7 @@ export default function Home() {
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [capturedFrames, setCapturedFrames] = useState<Array<{ label: string; data: string }>>([]);
+  const [ruleChecks, setRuleChecks] = useState<boolean[]>(() => metrologyRules.map(() => false));
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [manual, setManual] = useState({ product_name: "", declared_net_quantity: "200", scale_net_weight: "197", mrp: "60", expiry_date: "2027-02-14" });
@@ -182,6 +196,7 @@ export default function Home() {
   const displayedMrp = live?.compliance.pricing.mrp != null ? `₹${live.compliance.pricing.mrp.toFixed(2)}` : activeFixture.mrp;
   const displayedUsp = live?.compliance.pricing.unitSalePrice != null ? `₹${live.compliance.pricing.unitSalePrice.toFixed(2)}${live.compliance.pricing.unitLabel.replace("₹", "")}` : activeFixture.usp;
   const riskMax = useMemo(() => Math.max(...liveRisks.map(r => r.score), 1), [liveRisks]);
+  const checkedRules = ruleChecks.filter(Boolean).length;
 
   return (
     <div className="metrology-page">
@@ -205,6 +220,8 @@ export default function Home() {
         </section>
 
         <section className="console-section ruled-section" id="console"><div className="section-head"><h2>Scan console</h2><span>MODULE 0 · LIVE INPUT</span></div><div className="console-grid"><div className="console-run"><div><p className="eyebrow">Automated CV pipeline</p><h3>Scan the real package with your camera</h3><p>Capture the front panel, ingredients panel, and barcode or batch side. The frames are posted together as one inspection dossier.</p></div><div className="console-controls"><select aria-label="Fixture fallback" value={activeId} onChange={event => setActiveId(event.target.value)}>{fixtures.map(f => <option key={f.id} value={f.id}>{f.label} fallback</option>)}</select><button className="button button-dark" onClick={openCamera} disabled={scanState === "loading"}>{scanState === "loading" ? "Scanning…" : "Open camera"}</button><span className={`console-status ${scanState}`}>{scanState === "done" ? "API RESPONSE RECEIVED" : scanState === "error" ? "API UNAVAILABLE" : "CAMERA READY"}</span></div></div><form className="manual-form" onSubmit={runManualAudit}><div><p className="eyebrow">Manual fallback</p><h3>Torn or obscured label</h3></div><input aria-label="Product name" placeholder="Product name" value={manual.product_name} onChange={e => setManual({ ...manual, product_name: e.target.value })} /><input aria-label="Declared quantity" placeholder="Declared g" value={manual.declared_net_quantity} onChange={e => setManual({ ...manual, declared_net_quantity: e.target.value })} /><input aria-label="Measured quantity" placeholder="Measured g" value={manual.scale_net_weight} onChange={e => setManual({ ...manual, scale_net_weight: e.target.value })} /><input aria-label="MRP" placeholder="MRP ₹" value={manual.mrp} onChange={e => setManual({ ...manual, mrp: e.target.value })} /><button className="button button-line" type="submit" disabled={scanState === "loading"}>Audit manual fields</button></form></div>{cameraOpen && <div className="camera-panel" role="dialog" aria-modal="true" aria-labelledby="camera-title"><div className="camera-view"><video ref={videoRef} autoPlay playsInline muted aria-label="Live package camera preview" /><div className="camera-frame" aria-hidden="true" /><span className="camera-guide">Align {capturedFrames.length === 0 ? "front PDP" : capturedFrames.length === 1 ? "ingredients panel" : "barcode / batch side"} inside the frame</span></div><div className="camera-side"><div><p className="eyebrow">Camera capture · {capturedFrames.length}/3 panels</p><h3 id="camera-title">Build the inspection dossier</h3><p>Use even light. Keep text flat and fill the guide with one package panel at a time.</p></div><div className="capture-list">{["Front PDP", "Ingredients panel", "Barcode / batch side"].map((label, index) => <div className={`capture-item ${capturedFrames[index] ? "captured" : ""}`} key={label}><span>{capturedFrames[index] ? "✓" : String(index + 1).padStart(2, "0")}</span><strong>{label}</strong>{capturedFrames[index] && <small>frame ready</small>}</div>)}</div>{cameraError && <p className="camera-error" role="alert">{cameraError}</p>}<div className="camera-actions"><button className="button button-line" onClick={closeCamera}>Close camera</button><button className="button button-line" onClick={captureFrame} disabled={capturedFrames.length >= 3}>Capture panel</button><button className="button button-dark" onClick={() => runLiveScan()} disabled={capturedFrames.length === 0 || scanState === "loading"}>{scanState === "loading" ? "Sending…" : "Scan captured frames"}</button></div></div></div>}</section>
+
+        <section className="ruled-section checklist-section" id="metrology-checklist"><div className="section-head"><h2>10-rule metrology check</h2><span>MANUAL ATTESTATION · PCR 2011 / RULE 6</span></div><div className="checklist-summary"><div><strong>{checkedRules}/10</strong><span>rules checked</span></div><div className="checklist-progress"><i style={{ width: `${checkedRules * 10}%` }} /></div><button className="button button-line" onClick={() => setRuleChecks(metrologyRules.map(() => false))}>Reset checklist</button></div><div className="metrology-checklist">{metrologyRules.map(([code, title, detail], index) => <label className={`rule-check ${ruleChecks[index] ? "checked" : ""}`} key={code}><input type="checkbox" checked={ruleChecks[index]} onChange={event => setRuleChecks(current => current.map((value, ruleIndex) => ruleIndex === index ? event.target.checked : value))} /><span className="rule-box" aria-hidden="true">{ruleChecks[index] ? "✓" : ""}</span><span className="rule-copy"><strong>{code} · {title}</strong><small>{detail}</small></span></label>)}</div></section>
 
         <section className="ruled-section" id="pipeline"><div className="section-head"><h2>Image pipeline</h2><span>MODULE 1–2 · CV + OCR</span></div><div className="pipeline-grid">{[["01", "Grayscale", "ITU-R BT.601 luminance isolates ink from stock."], ["02", "Denoise", "5×5 Gaussian filter cuts print grain."], ["03", "CLAHE", "8×8 contrast tiles recover faint stamps."], ["04", "Binarize", "Adaptive Gaussian unioned with Otsu."], ["05", "Deskew", "Tilt is corrected inside a ±25° window."], ["06", "Upscale", "1.75× cubic interpolation clears the OCR floor."]].map(([n, title, detail]) => <div className="pipeline-step" key={n}><span className="step-num">{n}</span><h3>{title}</h3><p>{detail}</p></div>)}</div></section>
 
