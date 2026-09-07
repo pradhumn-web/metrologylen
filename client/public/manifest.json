@@ -1,0 +1,14 @@
+{
+  "name": "MetrologyLens — Commodity Compliance",
+  "short_name": "MetrologyLens",
+  "description": "Camera-led commodity label compliance inspection for Legal Metrology and FSSAI checks.",
+  "start_url": "/?from_app=1",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#EAE7DD",
+  "theme_color": "#1A1D16",
+  "icons": [
+    { "src": "/metrology-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
