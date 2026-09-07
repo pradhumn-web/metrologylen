@@ -206,6 +206,38 @@ export default function Home() {
     }
   }
 
+  function downloadChecklistReport() {
+    const escapeCsv = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+    const declarations = live?.compliance.declarations ?? [];
+    const rows = metrologyRules.map(([code, title, detail], index) => {
+      const ruleId = declarationRuleIds[index];
+      const declaration = ruleId ? declarations.find(row => row.rule === ruleId) : undefined;
+      const evidence = declaration?.found ?? (index === 9 ? (live?.ocr?.text.match(/(?:barcode|batch|lot)[^\n]*/i)?.[0] ?? "OCR traceability panel captured") : "Manual review required");
+      return [code, title, detail, ruleChecks[index] ? "CHECKED" : "NOT CHECKED", evidence, declaration?.status ?? (live ? "OCR EVIDENCE" : "MANUAL")];
+    });
+    const metadata = [
+      ["MetrologyLens compliance report"],
+      ["Product", currentProductName],
+      ["Verdict", activeVerdict.text],
+      ["Match score", `${activeVerdict.score}/100`],
+      ["Checklist source", checklistSource],
+      ["Generated", new Date().toISOString()],
+      [],
+      ["Rule", "Requirement", "Check", "Status", "Evidence", "Detection status"],
+      ...rows,
+    ];
+    const csv = metadata.map(row => row.map(escapeCsv).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${currentProductName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "product"}-compliance-report.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
   const displayedQuantity = live ? `${live.compliance.quantity.declared} ${live.compliance.quantity.unit}` : activeFixture.declared;
   const displayedMeasured = live?.compliance.quantity.measured != null ? `${live.compliance.quantity.measured} g` : activeFixture.measured;
   const displayedMrp = live?.compliance.pricing.mrp != null ? `₹${live.compliance.pricing.mrp.toFixed(2)}` : activeFixture.mrp;
@@ -237,7 +269,7 @@ export default function Home() {
 
         <section className="console-section ruled-section" id="console"><div className="section-head"><h2>Scan console</h2><span>MODULE 0 · LIVE INPUT</span></div><div className="console-grid"><div className="console-run"><div><p className="eyebrow">Automated CV pipeline</p><h3>Scan the real package with your camera</h3><p>Capture the front panel, ingredients panel, and barcode or batch side. The frames are posted together as one inspection dossier.</p></div><div className="console-controls"><select aria-label="Fixture fallback" value={activeId} onChange={event => setActiveId(event.target.value)}>{fixtures.map(f => <option key={f.id} value={f.id}>{f.label} fallback</option>)}</select><button className="button button-dark" onClick={openCamera} disabled={scanState === "loading"}>{scanState === "loading" ? "Scanning…" : "Open camera"}</button><span className={`console-status ${scanState}`}>{scanState === "done" ? "API RESPONSE RECEIVED" : scanState === "error" ? "API UNAVAILABLE" : "CAMERA READY"}</span></div></div><form className="manual-form" onSubmit={runManualAudit}><div><p className="eyebrow">Manual fallback</p><h3>Torn or obscured label</h3></div><input aria-label="Product name" placeholder="Product name" value={manual.product_name} onChange={e => setManual({ ...manual, product_name: e.target.value })} /><input aria-label="Declared quantity" placeholder="Declared g" value={manual.declared_net_quantity} onChange={e => setManual({ ...manual, declared_net_quantity: e.target.value })} /><input aria-label="Measured quantity" placeholder="Measured g" value={manual.scale_net_weight} onChange={e => setManual({ ...manual, scale_net_weight: e.target.value })} /><input aria-label="MRP" placeholder="MRP ₹" value={manual.mrp} onChange={e => setManual({ ...manual, mrp: e.target.value })} /><button className="button button-line" type="submit" disabled={scanState === "loading"}>Audit manual fields</button></form></div>{cameraOpen && <div className="camera-panel" role="dialog" aria-modal="true" aria-labelledby="camera-title"><div className="camera-view"><video ref={videoRef} autoPlay playsInline muted aria-label="Live package camera preview" /><div className="camera-frame" aria-hidden="true" /><span className="camera-guide">Align {capturedFrames.length === 0 ? "front PDP" : capturedFrames.length === 1 ? "ingredients panel" : "barcode / batch side"} inside the frame</span></div><div className="camera-side"><div><p className="eyebrow">Camera capture · {capturedFrames.length}/3 panels</p><h3 id="camera-title">Build the inspection dossier</h3><p>Use even light. Keep text flat and fill the guide with one package panel at a time.</p></div><div className="capture-list">{["Front PDP", "Ingredients panel", "Barcode / batch side"].map((label, index) => <div className={`capture-item ${capturedFrames[index] ? "captured" : ""}`} key={label}><span>{capturedFrames[index] ? "✓" : String(index + 1).padStart(2, "0")}</span><strong>{label}</strong>{capturedFrames[index] && <small>frame ready</small>}</div>)}</div>{cameraError && <p className="camera-error" role="alert">{cameraError}</p>}<div className="camera-actions"><button className="button button-line" onClick={closeCamera}>Close camera</button><button className="button button-line" onClick={captureFrame} disabled={capturedFrames.length >= 3}>Capture panel</button><button className="button button-dark" onClick={() => runLiveScan()} disabled={capturedFrames.length === 0 || scanState === "loading"}>{scanState === "loading" ? "Sending…" : "Scan captured frames"}</button></div></div></div>}</section>
 
-        <section className="ruled-section checklist-section" id="metrology-checklist"><div className="section-head"><h2>10-rule metrology check</h2><span>{checklistSource}</span></div><div className="checklist-summary"><div><strong>{checkedRules}/10</strong><span>rules checked</span></div><div className="checklist-progress"><i style={{ width: `${checkedRules * 10}%` }} /></div><button className="button button-line" onClick={() => setRuleChecks(metrologyRules.map(() => false))}>Reset checklist</button></div><div className="metrology-checklist">{metrologyRules.map(([code, title, detail], index) => <label className={`rule-check ${ruleChecks[index] ? "checked" : ""}`} key={code}><input type="checkbox" checked={ruleChecks[index]} onChange={event => setRuleChecks(current => current.map((value, ruleIndex) => ruleIndex === index ? event.target.checked : value))} /><span className="rule-box" aria-hidden="true">{ruleChecks[index] ? "✓" : ""}</span><span className="rule-copy"><strong>{code} · {title}</strong><small>{detail}</small></span></label>)}</div></section>
+        <section className="ruled-section checklist-section" id="metrology-checklist"><div className="section-head"><h2>10-rule metrology check</h2><span>{checklistSource}</span></div><div className="checklist-summary"><div><strong>{checkedRules}/10</strong><span>rules checked</span></div><div className="checklist-progress"><i style={{ width: `${checkedRules * 10}%` }} /></div><div className="checklist-actions"><button className="button button-line" onClick={() => setRuleChecks(metrologyRules.map(() => false))}>Reset checklist</button><button className="button button-dark" onClick={downloadChecklistReport}>Download report</button></div></div><div className="metrology-checklist">{metrologyRules.map(([code, title, detail], index) => <label className={`rule-check ${ruleChecks[index] ? "checked" : ""}`} key={code}><input type="checkbox" checked={ruleChecks[index]} onChange={event => setRuleChecks(current => current.map((value, ruleIndex) => ruleIndex === index ? event.target.checked : value))} /><span className="rule-box" aria-hidden="true">{ruleChecks[index] ? "✓" : ""}</span><span className="rule-copy"><strong>{code} · {title}</strong><small>{detail}</small></span></label>)}</div></section>
 
         <section className="ruled-section" id="pipeline"><div className="section-head"><h2>Image pipeline</h2><span>MODULE 1–2 · CV + OCR</span></div><div className="pipeline-grid">{[["01", "Grayscale", "ITU-R BT.601 luminance isolates ink from stock."], ["02", "Denoise", "5×5 Gaussian filter cuts print grain."], ["03", "CLAHE", "8×8 contrast tiles recover faint stamps."], ["04", "Binarize", "Adaptive Gaussian unioned with Otsu."], ["05", "Deskew", "Tilt is corrected inside a ±25° window."], ["06", "Upscale", "1.75× cubic interpolation clears the OCR floor."]].map(([n, title, detail]) => <div className="pipeline-step" key={n}><span className="step-num">{n}</span><h3>{title}</h3><p>{detail}</p></div>)}</div></section>
 
