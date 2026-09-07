@@ -107,11 +107,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .section-head h2 { margin: 0; font: 700 29px/1 var(--sans); letter-spacing: -.045em; }
 .section-head > span { color: var(--ink-soft); font: 10px var(--mono); text-align: right; }
 .pipeline-grid { display: grid; grid-template-columns: repeat(6, 1fr); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.pipeline-step { min-height: 168px; padding: 16px 13px 10px; border-right: 1px solid var(--line); }
-.pipeline-step:last-child { border-right: 0; }
-.step-num { color: var(--indigo); font: 20px var(--mono); }
-.pipeline-step h3 { margin: 24px 0 8px; font: 700 16px var(--sans); }
-.pipeline-step p { margin: 0; color: var(--ink-soft); font-size: 13px; line-height: 1.4; }
 
 .ledger { border-top: 1px solid var(--line-strong); }
 .ledger-row { display: grid; grid-template-columns: 84px 1fr 1.05fr 144px; gap: 17px; align-items: center; min-height: 70px; padding: 12px 0; border-bottom: 1px solid var(--line); }
