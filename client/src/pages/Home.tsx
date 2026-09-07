@@ -18,6 +18,7 @@ type Fixture = {
 
 type Declaration = { rule: string; name: string; explanation: string; found: string; status: string };
 type RiskRecord = { id?: string; name: string; level?: string; tone?: string; reason: string; score: number };
+type AllergenRecord = { id: string; name: string; present: boolean; matchedKeywords: string[]; severity: string };
 type Dossier = {
   compliance: {
     verdict: Verdict;
@@ -102,6 +103,26 @@ const staticRisks: RiskRecord[] = [
   { name: "Celiac disease", score: 0, tone: "pass", reason: "No gluten keyword in the worked fixture." },
 ];
 
+const allergenCatalog: Array<[string, string, string]> = [
+  ["gluten", "Gluten", "critical"], ["dairy", "Dairy", "critical"], ["peanuts_tree_nuts", "Peanuts / tree nuts", "critical"],
+  ["soy", "Soy", "critical"], ["eggs", "Eggs", "critical"], ["fish_shellfish", "Fish / shellfish", "critical"],
+  ["sesame", "Sesame", "moderate"], ["mustard", "Mustard", "moderate"], ["sulfites", "Sulfites", "moderate"],
+];
+
+function productAllergens(present: Record<string, string[]>): AllergenRecord[] {
+  return allergenCatalog.map(([id, name, severity]) => ({ id, name, severity, present: Boolean(present[id]), matchedKeywords: present[id] ?? [] }));
+}
+
+const verdictProfiles: Record<string, { allergens: AllergenRecord[]; risks: RiskRecord[]; statutoryLine: string }> = {
+  "oats-500g": { allergens: productAllergens({ gluten: ["gluten", "oats"] }), risks: [{ name: "Celiac disease", score: 88, tone: "fail", reason: "Gluten declaration detected in the oat ingredient panel." }, { name: "Hypertension & CVD", score: 4, tone: "pass", reason: "No sodium-loaded ingredient signal found." }, { name: "Diabetes mellitus", score: 12, tone: "pass", reason: "No added sugar or syrup keyword detected." }, { name: "Atherosclerosis & lipids", score: 3, tone: "pass", reason: "No palm or hydrogenated fat signal found." }], statutoryLine: "ALLERGEN DECLARATION: Contains Gluten. Sensitive consumers should exercise caution." },
+  "rice-5kg": { allergens: productAllergens({}), risks: [{ name: "Celiac disease", score: 0, tone: "pass", reason: "No gluten keyword detected." }, { name: "Hypertension & CVD", score: 0, tone: "pass", reason: "No sodium-loaded ingredient signal found." }, { name: "Diabetes mellitus", score: 0, tone: "pass", reason: "No added sugar signal found." }, { name: "Atherosclerosis & lipids", score: 0, tone: "pass", reason: "No palm or hydrogenated fat signal found." }], statutoryLine: "ALLERGEN DECLARATION: No declared allergen keyword detected." },
+  "namkeen-noncompliant": { allergens: productAllergens({ soy: ["soy"], sulfites: ["INS 150d"] }), risks: staticRisks, statutoryLine: "ALLERGEN DECLARATION: Contains Soy, Sulfites. Sensitive consumers must exercise strict caution." },
+  "spices-expired": { allergens: productAllergens({ mustard: ["mustard seeds"], sulfites: ["INS 211"] }), risks: [{ name: "Hypertension & CVD", score: 42, tone: "review", reason: "Salt and preservative signal in the spice blend." }, { name: "Diabetes mellitus", score: 2, tone: "pass", reason: "No added sugar signal detected." }, { name: "Celiac disease", score: 0, tone: "pass", reason: "No gluten keyword detected." }, { name: "Mustard sensitivity", score: 76, tone: "fail", reason: "Mustard Seeds are explicitly listed." }], statutoryLine: "ALLERGEN DECLARATION: Contains Mustard and Sulfites." },
+  "lays-chips": { allergens: productAllergens({}), risks: [{ name: "Hypertension & CVD", score: 68, tone: "review", reason: "Iodised salt is declared in a savoury snack." }, { name: "Atherosclerosis & lipids", score: 72, tone: "fail", reason: "Palmolein oil is declared." }, { name: "Diabetes mellitus", score: 8, tone: "pass", reason: "No sugar or syrup keyword detected." }, { name: "Celiac disease", score: 0, tone: "pass", reason: "No gluten keyword detected." }], statutoryLine: "ALLERGEN DECLARATION: No major allergen keyword detected; salt and palmolein advisories apply." },
+  "parle-g-biscuit": { allergens: productAllergens({ gluten: ["wheat flour", "maida"], dairy: ["milk solids"] }), risks: [{ name: "Celiac disease", score: 91, tone: "fail", reason: "Wheat Flour (Maida) is explicitly listed." }, { name: "Lactose intolerance", score: 64, tone: "review", reason: "Milk Solids are declared." }, { name: "Diabetes mellitus", score: 78, tone: "fail", reason: "Sugar and invert syrup are declared." }, { name: "Atherosclerosis & lipids", score: 55, tone: "review", reason: "Palmolein oil is declared." }], statutoryLine: "ALLERGEN DECLARATION: Contains Wheat (Gluten) and Milk Solids." },
+  "fizz-softdrink": { allergens: productAllergens({ sulfites: ["INS 211"] }), risks: [{ name: "Diabetes mellitus", score: 96, tone: "fail", reason: "Sugar is a primary ingredient in the soft drink." }, { name: "Hypertension & CVD", score: 18, tone: "review", reason: "Carbonated beverage and preservative signal detected." }, { name: "Celiac disease", score: 0, tone: "pass", reason: "No gluten keyword detected." }, { name: "Sulfite sensitivity", score: 44, tone: "review", reason: "Preservative INS 211 is declared." }], statutoryLine: "ALLERGEN DECLARATION: Sulfite preservative detected; added sugar advisory applies." },
+};
+
 function statusTone(status: string) {
   if (status.includes("PRESENT") || status.includes("N/A")) return "pass";
   if (status.includes("UNDERSIZED")) return "review";
@@ -120,19 +141,10 @@ export default function Home() {
   const streamRef = useRef<MediaStream | null>(null);
   const [manual, setManual] = useState({ product_name: "", declared_net_quantity: "200", scale_net_weight: "197", mrp: "60", expiry_date: "2027-02-14" });
   const activeFixture = fixtures.find(f => f.id === activeId) ?? fixtures[2];
+  const activeProfile = verdictProfiles[activeId] ?? verdictProfiles["namkeen-noncompliant"];
   const liveDeclarations = live?.compliance.declarations ?? staticDeclarations;
-  const liveRisks: RiskRecord[] = live?.health.chronicRisks ?? staticRisks;
-  const liveAllergens = live?.health.allergens ?? [
-    { id: "gluten", name: "Gluten", present: false, matchedKeywords: [], severity: "critical" },
-    { id: "dairy", name: "Dairy", present: false, matchedKeywords: [], severity: "critical" },
-    { id: "peanuts_tree_nuts", name: "Peanuts / tree nuts", present: false, matchedKeywords: [], severity: "critical" },
-    { id: "soy", name: "Soy", present: true, matchedKeywords: ["soy"], severity: "critical" },
-    { id: "eggs", name: "Eggs", present: false, matchedKeywords: [], severity: "critical" },
-    { id: "fish_shellfish", name: "Fish / shellfish", present: false, matchedKeywords: [], severity: "critical" },
-    { id: "sesame", name: "Sesame", present: false, matchedKeywords: [], severity: "moderate" },
-    { id: "mustard", name: "Mustard", present: false, matchedKeywords: [], severity: "moderate" },
-    { id: "sulfites", name: "Sulfites", present: true, matchedKeywords: ["INS 150d"], severity: "moderate" },
-  ];
+  const liveRisks: RiskRecord[] = live?.health.chronicRisks ?? activeProfile.risks;
+  const liveAllergens: AllergenRecord[] = live?.health.allergens ?? activeProfile.allergens;
   const activeVerdict = live ? { score: live.compliance.matchScore, text: live.compliance.verdictLabel, verdict: live.compliance.verdict, reason: live.compliance.criticalIssues[0] ?? "All critical fields present." } : { score: activeFixture.score, text: activeFixture.verdictText, verdict: activeFixture.verdict, reason: activeFixture.reason };
   const currentProductName = live?.productName ?? "Classic Besan Sev";
 
@@ -291,7 +303,7 @@ export default function Home() {
 
         <section className="ruled-section" id="verdicts"><div className="section-head"><h2>Verdicts</h2><span>GROUND-TRUTH FIXTURES · 7 CASES</span></div><div className="fixture-tabs" role="tablist" aria-label="Ground-truth fixtures">{fixtures.map(f => <button key={f.id} role="tab" aria-selected={activeId === f.id} className={activeId === f.id ? "active" : ""} onClick={() => { setActiveId(f.id); setLive(null); setRuleChecks(metrologyRules.map(() => false)); }}>{f.label}</button>)}</div><div className="verdict-panel"><div className="fixture-data"><dl><div><dt>Declared / measured</dt><dd>{live && activeId === "namkeen-noncompliant" ? displayedQuantity : activeFixture.declared} <span>/</span> {live && activeId === "namkeen-noncompliant" ? displayedMeasured : activeFixture.measured}</dd></div><div><dt>MRP / unit sale price</dt><dd>{live && activeId === "namkeen-noncompliant" ? displayedMrp : activeFixture.mrp} <span>/</span> {live && activeId === "namkeen-noncompliant" ? displayedUsp : activeFixture.usp}</dd></div><div><dt>Ingredient read</dt><dd className="ingredient-read">{activeFixture.ingredients}</dd></div><div><dt>Match score</dt><dd className="score-read">{live && activeId === "namkeen-noncompliant" ? live.compliance.matchScore : activeFixture.score}<span>/100</span></dd></div></dl><div className="flag-row">{activeFixture.flags.map(flag => <span key={flag.text} className={`flag-chip ${flag.tone}`}>{flag.text}</span>)}</div></div><div className={`ink-stamp ${activeVerdict.verdict === "COMPLIANT" ? "pass" : activeVerdict.verdict === "NEEDS_REVIEW" ? "review" : "fail"}`}><span>{activeVerdict.text}</span><small>{activeVerdict.reason}</small></div></div></section>
 
-        <section className="ruled-section" id="allergens"><div className="section-head"><h2>Allergen & health risk</h2><span>FSSAI REG. 2.4.5 · WORKED EXAMPLE</span></div><div className="allergen-grid">{liveAllergens.map(allergen => <div className={`allergen-cell ${allergen.present ? "present" : "clear"}`} key={allergen.id}><div><strong>{allergen.name}</strong><span>{allergen.present ? allergen.severity.toUpperCase() : "NOT FOUND"}</span></div><p>{allergen.present ? `Matched ${allergen.matchedKeywords.join(", ")}.` : "No keyword match in the ingredient read."}</p></div>)}</div><p className="statutory-line">{live?.health.statutoryLine ?? "ALLERGEN DECLARATION (FSSAI Reg. 2.4.5): Contains Soy, Sulfites. Sensitive consumers must exercise strict caution."}</p><div className="risk-strip">{liveRisks.slice(0, 4).map(risk => <div className="risk-item" key={risk.id ?? risk.name}><div className="risk-label"><strong>{risk.name}</strong><span className={`risk-level ${risk.level ?? risk.tone ?? "low"}`}>{(risk.level ?? risk.tone ?? "low").toUpperCase()}</span></div><div className="risk-bar"><i className={risk.level ?? risk.tone ?? "low"} style={{ width: `${Math.round((risk.score / riskMax) * 100)}%` }} /></div><p>{risk.reason}</p></div>)}</div></section>
+        <section className="ruled-section" id="allergens"><div className="section-head"><h2>Allergen & health risk</h2><span>FSSAI REG. 2.4.5 · {activeFixture.label.toUpperCase()}</span></div><div className="allergen-grid">{liveAllergens.map(allergen => <div className={`allergen-cell ${allergen.present ? "present" : "clear"}`} key={allergen.id}><div><strong>{allergen.name}</strong><span>{allergen.present ? allergen.severity.toUpperCase() : "NOT FOUND"}</span></div><p>{allergen.present ? `Matched ${allergen.matchedKeywords.join(", ")}.` : "No keyword match in this product’s ingredient read."}</p></div>)}</div><p className="statutory-line">{live?.health.statutoryLine ?? activeProfile.statutoryLine}</p><div className="risk-strip">{liveRisks.slice(0, 4).map(risk => <div className="risk-item" key={risk.id ?? risk.name}><div className="risk-label"><strong>{risk.name}</strong><span className={`risk-level ${risk.level ?? risk.tone ?? "low"}`}>{(risk.level ?? risk.tone ?? "low").toUpperCase()}</span></div><div className="risk-bar"><i className={risk.level ?? risk.tone ?? "low"} style={{ width: `${Math.round((risk.score / riskMax) * 100)}%` }} /></div><p>{risk.reason}</p></div>)}</div></section>
 
         <section className="ruled-section" id="api"><div className="section-head"><h2>API surface</h2><span>REST · JSON · /API</span></div><div className="api-table"><div className="api-row api-head"><span>METHOD</span><span>PATH</span><span>RETURNS</span></div>{[["POST", "/api/scan", "Full OCR dossier, Rule 6 results, MPE, barcode, allergens and health advisories."], ["POST", "/api/manual-audit", "Identical compliance and health evaluation from fallback fields."], ["GET", "/api/batches", "Batch manifest summaries and pass rates."], ["POST", "/api/batches", "Creates a planned inspection batch."], ["POST", "/api/discrepancies", "Section 36 discrepancy ticket."], ["GET", "/api/export/csv?batch_id=", "CSV manifest attachment."], ["GET", "/api/export/json?batch_id=", "JSON dossier + Form IV object."]].map(([method, path, returns]) => <div className="api-row" key={`${method}-${path}`}><span className={`method ${method.toLowerCase()}`}>{method}</span><code>{path}</code><span>{returns}</span></div>)}</div></section>
       </main>
