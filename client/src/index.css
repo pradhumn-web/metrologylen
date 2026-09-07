@@ -204,4 +204,7 @@ select { flex: 1 1 190px; }
 @media (max-width: 560px) {
   .ingredient-row { grid-template-columns: 1.05fr .85fr 1fr; font-size: 10px; }
   .ingredient-row span { padding: 6px 5px; }
+  .mobile-app-nav { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .mobile-app-nav a { width: 100%; justify-self: stretch; text-align: center; }
+  #console, #metrology-checklist, #verdicts, #allergens { scroll-margin-top: 14px; }
 }
