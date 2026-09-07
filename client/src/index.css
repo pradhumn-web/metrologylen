@@ -161,7 +161,9 @@ dt { color: var(--ink-soft); font: 700 12px var(--sans); } dd { margin: 0; font:
 .method { font-weight: 700; } .method.get { color: var(--pass); } .method.post { color: var(--indigo); }
 
 .console-section { background: rgba(211, 207, 190, .32); }
-.console-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.console-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.scan-progress { display: grid; grid-template-columns: 1fr minmax(180px, 360px) auto; gap: 18px; align-items: center; margin-bottom: 16px; padding: 14px 16px; border: 1px solid var(--line-strong); background: var(--paper-alt); }
+.scan-progress strong { display: block; font: 700 15px var(--sans); } .scan-progress span { display: block; margin-top: 4px; color: var(--ink-soft); font: 11px var(--mono); } .scan-progress-bar { height: 10px; overflow: hidden; border: 1px solid var(--line-strong); background: var(--paper); } .scan-progress-bar i { display: block; height: 100%; background: var(--indigo); transition: width 180ms var(--ease-out); }
 .console-run, .manual-form { display: grid; gap: 15px; border: 1px solid var(--line-strong); padding: 20px; background: rgba(234, 231, 221, .5); }
 .console-run h3, .manual-form h3 { margin: 0; font: 700 19px var(--sans); } .console-run p:not(.eyebrow) { margin: 7px 0 0; color: var(--ink-soft); font-size: 13px; line-height: 1.4; }
 .console-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -207,4 +209,10 @@ select { flex: 1 1 190px; }
   .mobile-app-nav { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .mobile-app-nav a { width: 100%; justify-self: stretch; text-align: center; }
   #console, #metrology-checklist, #verdicts, #allergens { scroll-margin-top: 14px; }
+}
+
+@media (max-width: 560px) {
+  .scan-progress { grid-template-columns: 1fr auto; gap: 10px; padding: 12px; }
+  .scan-progress-bar { grid-column: 1 / -1; grid-row: 2; }
+  .scan-progress .button { grid-column: 1 / -1; width: 100%; }
 }
