@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type Verdict = "COMPLIANT" | "NEEDS_REVIEW" | "NON_COMPLIANT";
 type Fixture = {
@@ -75,6 +75,11 @@ export default function Home() {
   const [activeId, setActiveId] = useState("namkeen-noncompliant");
   const [live, setLive] = useState<Dossier | null>(null);
   const [scanState, setScanState] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraError, setCameraError] = useState("");
+  const [capturedFrames, setCapturedFrames] = useState<Array<{ label: string; data: string }>>([]);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const [manual, setManual] = useState({ product_name: "", declared_net_quantity: "200", scale_net_weight: "197", mrp: "60", expiry_date: "2027-02-14" });
   const activeFixture = fixtures.find(f => f.id === activeId) ?? fixtures[2];
   const liveDeclarations = live?.compliance.declarations ?? staticDeclarations;
@@ -93,13 +98,64 @@ export default function Home() {
   const activeVerdict = live ? { score: live.compliance.matchScore, text: live.compliance.verdictLabel, verdict: live.compliance.verdict, reason: live.compliance.criticalIssues[0] ?? "All critical fields present." } : { score: activeFixture.score, text: activeFixture.verdictText, verdict: activeFixture.verdict, reason: activeFixture.reason };
   const currentProductName = live?.productName ?? "Classic Besan Sev";
 
+  useEffect(() => {
+    if (!cameraOpen) return;
+    let cancelled = false;
+    setCameraError("");
+    navigator.mediaDevices?.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false })
+      .then(stream => {
+        if (cancelled) {
+          stream.getTracks().forEach(track => track.stop());
+          return;
+        }
+        streamRef.current = stream;
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      })
+      .catch(() => setCameraError("Camera access was blocked. Allow camera permission, or use the manual fallback below."));
+    return () => { cancelled = true; streamRef.current?.getTracks().forEach(track => track.stop()); streamRef.current = null; };
+  }, [cameraOpen]);
+
+  function openCamera() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError("This browser does not expose camera access. Use the manual fallback below.");
+      setCameraOpen(true);
+      return;
+    }
+    setCapturedFrames([]);
+    setCameraOpen(true);
+  }
+
+  function closeCamera() {
+    streamRef.current?.getTracks().forEach(track => track.stop());
+    streamRef.current = null;
+    setCameraOpen(false);
+  }
+
+  function captureFrame() {
+    const video = videoRef.current;
+    if (!video || video.readyState < 2 || video.videoWidth === 0) {
+      setCameraError("The camera is still starting. Hold the package steady and try again.");
+      return;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const labels = ["Front PDP", "Ingredients panel", "Barcode / batch side"];
+    const next = { label: labels[capturedFrames.length] ?? `Panel ${capturedFrames.length + 1}`, data: canvas.toDataURL("image/jpeg", 0.84) };
+    setCapturedFrames(frames => [...frames, next]);
+    setCameraError("");
+  }
+
   async function runLiveScan(preset = activeId) {
     setScanState("loading");
     try {
-      const response = await fetch("/api/scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ images: ["fixture"], mode: "full", preset_fallback: preset }) });
+      const images = capturedFrames.length > 0 ? capturedFrames.map(frame => frame.data) : ["fixture"];
+      const response = await fetch("/api/scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ images, mode: "full", batch_id: undefined, preset_fallback: preset }) });
       if (!response.ok) throw new Error("Scan failed");
       setLive(await response.json() as Dossier);
       setScanState("done");
+      closeCamera();
     } catch {
       setScanState("error");
     }
@@ -145,7 +201,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="console-section ruled-section" id="console"><div className="section-head"><h2>Scan console</h2><span>MODULE 0 · LIVE INPUT</span></div><div className="console-grid"><div className="console-run"><div><p className="eyebrow">Automated CV pipeline</p><h3>Run a fixture through the live API</h3><p>Use the same engine behind this preview. Choose a ground-truth package, then inspect the returned declarations and health matrix below.</p></div><div className="console-controls"><select aria-label="Fixture preset" value={activeId} onChange={event => setActiveId(event.target.value)}>{fixtures.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}</select><button className="button button-dark" onClick={() => runLiveScan()} disabled={scanState === "loading"}>{scanState === "loading" ? "Scanning…" : "Run live scan"}</button><span className={`console-status ${scanState}`}>{scanState === "done" ? "API RESPONSE RECEIVED" : scanState === "error" ? "API UNAVAILABLE" : "READY"}</span></div></div><form className="manual-form" onSubmit={runManualAudit}><div><p className="eyebrow">Manual fallback</p><h3>Torn or obscured label</h3></div><input aria-label="Product name" placeholder="Product name" value={manual.product_name} onChange={e => setManual({ ...manual, product_name: e.target.value })} /><input aria-label="Declared quantity" placeholder="Declared g" value={manual.declared_net_quantity} onChange={e => setManual({ ...manual, declared_net_quantity: e.target.value })} /><input aria-label="Measured quantity" placeholder="Measured g" value={manual.scale_net_weight} onChange={e => setManual({ ...manual, scale_net_weight: e.target.value })} /><input aria-label="MRP" placeholder="MRP ₹" value={manual.mrp} onChange={e => setManual({ ...manual, mrp: e.target.value })} /><button className="button button-line" type="submit" disabled={scanState === "loading"}>Audit manual fields</button></form></div></section>
+        <section className="console-section ruled-section" id="console"><div className="section-head"><h2>Scan console</h2><span>MODULE 0 · LIVE INPUT</span></div><div className="console-grid"><div className="console-run"><div><p className="eyebrow">Automated CV pipeline</p><h3>Scan the real package with your camera</h3><p>Capture the front panel, ingredients panel, and barcode or batch side. The frames are posted together as one inspection dossier.</p></div><div className="console-controls"><select aria-label="Fixture fallback" value={activeId} onChange={event => setActiveId(event.target.value)}>{fixtures.map(f => <option key={f.id} value={f.id}>{f.label} fallback</option>)}</select><button className="button button-dark" onClick={openCamera} disabled={scanState === "loading"}>{scanState === "loading" ? "Scanning…" : "Open camera"}</button><span className={`console-status ${scanState}`}>{scanState === "done" ? "API RESPONSE RECEIVED" : scanState === "error" ? "API UNAVAILABLE" : "CAMERA READY"}</span></div></div><form className="manual-form" onSubmit={runManualAudit}><div><p className="eyebrow">Manual fallback</p><h3>Torn or obscured label</h3></div><input aria-label="Product name" placeholder="Product name" value={manual.product_name} onChange={e => setManual({ ...manual, product_name: e.target.value })} /><input aria-label="Declared quantity" placeholder="Declared g" value={manual.declared_net_quantity} onChange={e => setManual({ ...manual, declared_net_quantity: e.target.value })} /><input aria-label="Measured quantity" placeholder="Measured g" value={manual.scale_net_weight} onChange={e => setManual({ ...manual, scale_net_weight: e.target.value })} /><input aria-label="MRP" placeholder="MRP ₹" value={manual.mrp} onChange={e => setManual({ ...manual, mrp: e.target.value })} /><button className="button button-line" type="submit" disabled={scanState === "loading"}>Audit manual fields</button></form></div>{cameraOpen && <div className="camera-panel" role="dialog" aria-modal="true" aria-labelledby="camera-title"><div className="camera-view"><video ref={videoRef} autoPlay playsInline muted aria-label="Live package camera preview" /><div className="camera-frame" aria-hidden="true" /><span className="camera-guide">Align {capturedFrames.length === 0 ? "front PDP" : capturedFrames.length === 1 ? "ingredients panel" : "barcode / batch side"} inside the frame</span></div><div className="camera-side"><div><p className="eyebrow">Camera capture · {capturedFrames.length}/3 panels</p><h3 id="camera-title">Build the inspection dossier</h3><p>Use even light. Keep text flat and fill the guide with one package panel at a time.</p></div><div className="capture-list">{["Front PDP", "Ingredients panel", "Barcode / batch side"].map((label, index) => <div className={`capture-item ${capturedFrames[index] ? "captured" : ""}`} key={label}><span>{capturedFrames[index] ? "✓" : String(index + 1).padStart(2, "0")}</span><strong>{label}</strong>{capturedFrames[index] && <small>frame ready</small>}</div>)}</div>{cameraError && <p className="camera-error" role="alert">{cameraError}</p>}<div className="camera-actions"><button className="button button-line" onClick={closeCamera}>Close camera</button><button className="button button-line" onClick={captureFrame} disabled={capturedFrames.length >= 3}>Capture panel</button><button className="button button-dark" onClick={() => runLiveScan()} disabled={capturedFrames.length === 0 || scanState === "loading"}>{scanState === "loading" ? "Sending…" : "Scan captured frames"}</button></div></div></div>}</section>
 
         <section className="ruled-section" id="pipeline"><div className="section-head"><h2>Image pipeline</h2><span>MODULE 1–2 · CV + OCR</span></div><div className="pipeline-grid">{[["01", "Grayscale", "ITU-R BT.601 luminance isolates ink from stock."], ["02", "Denoise", "5×5 Gaussian filter cuts print grain."], ["03", "CLAHE", "8×8 contrast tiles recover faint stamps."], ["04", "Binarize", "Adaptive Gaussian unioned with Otsu."], ["05", "Deskew", "Tilt is corrected inside a ±25° window."], ["06", "Upscale", "1.75× cubic interpolation clears the OCR floor."]].map(([n, title, detail]) => <div className="pipeline-step" key={n}><span className="step-num">{n}</span><h3>{title}</h3><p>{detail}</p></div>)}</div></section>
 
