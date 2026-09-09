@@ -1,0 +1,41 @@
+flowchart TD
+    A[Inspector opens MetrologyLens] --> B{Choose input method}
+    B -->|Camera| C[Request camera permission]
+    B -->|Manual fallback| M[Enter brand and label fields]
+    C --> D[Capture Front PDP]
+    D --> E[Capture Back PDP]
+    E --> F[Capture Ingredients panel]
+    F --> G[Capture Barcode or Batch side]
+    G --> H[Submit four image frames to /api/scan]
+    H --> I[OCR and image evidence extraction]
+    I --> J[Build inspection dossier]
+    M --> N[Submit fields to /api/manual-audit]
+    N --> J
+    J --> K[Evaluate ten metrology rules]
+    K --> K1[R1 Manufacturer / packer / importer]
+    K --> K2[R2 Country of origin]
+    K --> K3[R3 Generic commodity name]
+    K --> K4[R4 Net quantity and MPE]
+    K --> K5[R5 Manufacture or pack date]
+    K --> K6[R6 Best-before or expiry]
+    K --> K7[R7 MRP inclusive of taxes]
+    K --> K8[R8 Unit sale price]
+    K --> K9[R9 Consumer care details]
+    K --> K10[R10 Barcode / batch traceability]
+    K1 --> L[Compliance verdict]
+    K2 --> L
+    K3 --> L
+    K4 --> L
+    K5 --> L
+    K6 --> L
+    K7 --> L
+    K8 --> L
+    K9 --> L
+    K10 --> L
+    J --> P[Ingredient parsing]
+    P --> Q[Allergen matrix and additive detection]
+    Q --> R[Health-risk advisories]
+    L --> S[Display 10-rule checklist]
+    R --> S
+    S --> T[Display verdict, evidence, ingredients, allergens, and health risks]
+    T --> U[Inspector edits checklist or downloads report]
