@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -25,4 +25,15 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+export const productCatalogAmendments = mysqlTable("product_catalog_amendments", {
+  id: int("id").autoincrement().primaryKey(),
+  brandId: varchar("brandId", { length: 64 }).notNull(),
+  fieldName: varchar("fieldName", { length: 64 }).notNull(),
+  fieldValue: text("fieldValue").notNull(),
+  amendedAt: timestamp("amendedAt").defaultNow().notNull(),
+}, table => ({
+  brandFieldUnique: uniqueIndex("brand_field_unique").on(table.brandId, table.fieldName),
+}));
+
+export type ProductCatalogAmendment = typeof productCatalogAmendments.$inferSelect;
+export type InsertProductCatalogAmendment = typeof productCatalogAmendments.$inferInsert;

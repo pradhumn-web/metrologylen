@@ -4,6 +4,8 @@ import { evaluateCompliance } from "./compliance_rules";
 import { evaluateHealth } from "./health_engine";
 import { getFixture, fixtures, toDossier } from "./fixtures";
 import { chipsCompanyMasterDataset, chipsMetrologyDataset } from "./chips_datasets";
+import { invokeLLM } from "../_core/llm";
+import { getCatalogAmendments, upsertCatalogAmendment } from "../db";
 
 export type BatchItem = { sku: string; scannedAt: number; verdict: string; matchScore: number; discrepancy: boolean };
 export type Batch = { id: string; code: string; name: string; plannedQuantity: number; scannedCount: number; passCount: number; discrepancyCount: number; passRate: number; items: BatchItem[] };
@@ -65,7 +67,29 @@ function manualDossier(body: Record<string, unknown>) {
 }
 
 export function registerComplianceRoutes(app: Express) {
-  app.get("/api/chips/catalog", (_req: Request, res: Response) => res.json({ datasetType: "demo-company-reference", disclaimer: "Seeded demo inspection data; replace with verified product-company declarations before enforcement.", companyMaster: chipsCompanyMasterDataset, metrologyRules: chipsMetrologyDataset }));
+  app.get("/api/chips/catalog", async (_req: Request, res: Response) => {
+    const amendments = await getCatalogAmendments();
+    const companyMaster = chipsCompanyMasterDataset.map(row => amendments.filter(amendment => amendment.brandId === row.brandId).reduce((current, amendment) => ({ ...current, [amendment.fieldName]: amendment.fieldValue }), row));
+    return res.json({ datasetType: "demo-company-reference", disclaimer: "Seeded demo reference data; replace with verified product-company declarations before enforcement.", companyMaster, metrologyRules: chipsMetrologyDataset, amendments });
+  });
+  app.patch("/api/chips/catalog/:brandId", async (req: Request, res: Response) => {
+    const brandId = String(req.params.brandId);
+    if (!chipsCompanyMasterDataset.some(row => row.brandId === brandId)) return res.status(404).json({ error: "Brand not found" });
+    const update = Object.fromEntries(Object.entries(req.body ?? {}).map(([key, value]) => [key, String(value)]));
+    const saved = [];
+    for (const [fieldName, fieldValue] of Object.entries(update)) saved.push(await upsertCatalogAmendment({ brandId, fieldName, fieldValue }));
+    return res.json({ brandId, updated: saved, persistence: "database" });
+  });
+  app.post("/api/help-chat", async (req: Request, res: Response) => {
+    try {
+      const question = String(req.body?.message ?? "");
+      const response = await invokeLLM({ messages: [{ role: "system", content: "You are the MetrologyLens guide. Explain how to use scan, rules, verdicts, health, history, admin, company, and consumer/officer modes. Be concise, practical, and never present demo data as official legal advice." }, { role: "user", content: question }] });
+      const content = response.choices?.[0]?.message?.content;
+      return res.json({ answer: typeof content === "string" ? content : "Open Scan to capture the package, then review Rules and Verdicts." });
+    } catch {
+      return res.json({ answer: "I can guide you through Scan, Rules, Verdicts, Health, History, and the three work modes. Start with Scan to inspect a package." });
+    }
+  });
   app.post("/api/scan", (req: Request, res: Response) => {
     const requested = typeof req.body?.preset_fallback === "string" ? req.body.preset_fallback : "namkeen-noncompliant";
     const selected = getFixture(requested) ?? fixtures["namkeen-noncompliant"];

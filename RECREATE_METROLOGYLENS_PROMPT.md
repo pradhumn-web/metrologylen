@@ -224,3 +224,32 @@ Before delivery:
 9. Verify the report download includes the current checklist values.
 
 The final result should feel like a precise mobile-ready statutory inspection instrument, not a generic food product dashboard.
+
+## Routed application update
+
+The application is page-based rather than one long scrolling document. Use these routes:
+
+| Route | Purpose |
+|---|---|
+| `/` | Home page with scan-first hero and three mode entry points. |
+| `/scan` | Four-panel camera scanner and scan progress. |
+| `/rules` | Dedicated editable ten-rule checklist with expected company values. |
+| `/verdicts` | Dedicated product verdict, evidence, ingredient summary, and score page. |
+| `/health` | Dedicated allergen, ingredient, additive, and health-risk page. |
+| `/history` | Local device scan history with timestamp, brand, panel count, verdict, and score. |
+| `/modes` | Tri-mode workspace selector. Supports Consumer / Officer, Company, and Admin modes. |
+| `/assistant` | Chatbot guide for using the application. |
+
+Use a shared responsive application shell with a desktop sidebar and a mobile bottom navigation. The mobile navigation should expose Home, Scan, Rules, Verdicts, Health, and History. Add an always-visible `Need help? Ask the guide` entry in the header.
+
+## Tri-mode workspace
+
+The Home page must expose three modes:
+
+- **Consumer / Officer:** Open scanner, rules, verdicts, health, and scan history.
+- **Company:** Select a product and show the number and names of metrology rules that the product fails. Include explanations and a disclaimer that verified company data and statutory review are required.
+- **Admin:** Select a product, choose a catalog field such as MRP, best-before, consumer care, or manufacturer, enter a replacement value, and save it through an authenticated catalog-amendment API to a persistent database table. Show a success message and preserve an amendment audit trail in production.
+
+## Chatbot guide
+
+Add a chatbot page using a server-side LLM proxy. The assistant should explain camera permission, the four capture panels, the ten rules, verdict meaning, health-risk interpretation, scan history, company mode, and admin mode. It must not present demo values as official legal advice. Include suggested prompts and a fallback response when the LLM service is unavailable. Never expose LLM credentials in browser code.

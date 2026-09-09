@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertProductCatalogAmendment, InsertUser, productCatalogAmendments, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,16 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+export async function getCatalogAmendments() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(productCatalogAmendments);
+}
+
+export async function upsertCatalogAmendment(amendment: InsertProductCatalogAmendment) {
+  const db = await getDb();
+  if (!db) return undefined;
+  await db.insert(productCatalogAmendments).values(amendment).onDuplicateKeyUpdate({ set: { fieldValue: amendment.fieldValue, amendedAt: new Date() } });
+  const rows = await db.select().from(productCatalogAmendments).where(eq(productCatalogAmendments.brandId, amendment.brandId));
+  return rows.find(row => row.fieldName === amendment.fieldName);
+}

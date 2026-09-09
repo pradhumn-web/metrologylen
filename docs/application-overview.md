@@ -110,3 +110,9 @@ If the camera workflow cannot be used, the manual fallback accepts a typed brand
 [4]: https://www.vite.dev/guide/ "Vite Guide"
 [5]: https://orm.drizzle.team/docs/overview "Drizzle ORM Documentation"
 [6]: https://vitest.dev/guide/ "Vitest Documentation"
+
+## 7. Routed page architecture
+
+The current interface is divided into dedicated pages instead of one long scrolling document. Home is the scan-first entry point. Scan owns camera capture. Rules owns the editable ten-rule checklist. Verdicts owns compliance outcomes. Health owns allergens and health risks. History stores local scan records on the device. Modes contains Consumer / Officer, Company, and Admin workspaces. Assistant contains the guided chatbot.
+
+The Admin workspace writes catalog amendments to the `product_catalog_amendments` database table through the catalog API. The Company workspace highlights rules that a selected product does not satisfy. The Consumer / Officer workspace links the complete inspection workflow.
